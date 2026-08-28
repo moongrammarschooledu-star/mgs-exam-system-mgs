@@ -47,8 +47,13 @@ app.use('/api', notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`MGS Exam System running on port ${PORT}`);
-});
+// Only bind a port for local/traditional hosting. On Vercel the exported
+// app is wrapped as a serverless function and listen() is neither needed
+// nor wanted.
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`MGS Exam System running on port ${PORT}`);
+  });
+}
 
 module.exports = app;
