@@ -14,6 +14,9 @@ const sectionRoutes = require('./routes/sections');
 const subjectRoutes = require('./routes/subjects');
 const examRoutes = require('./routes/exams');
 const dashboardRoutes = require('./routes/dashboard');
+const studentRoutes = require('./routes/students');
+const promotionRoutes = require('./routes/promotions');
+const settingRoutes = require('./routes/settings');
 
 const app = express();
 
@@ -36,6 +39,9 @@ app.use('/api/sections', sectionRoutes);
 app.use('/api/subjects', subjectRoutes);
 app.use('/api/exams', examRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/students', studentRoutes);
+app.use('/api/promotions', promotionRoutes);
+app.use('/api/settings', settingRoutes);
 
 app.use('/api', notFound);
 app.use(errorHandler);
