@@ -64,8 +64,14 @@
       <a href="#" class="nav-item" data-view="datesheet">Date Sheet</a>
       <a href="#" class="nav-item" data-view="classes">Classes &amp; Subjects</a>
       <a href="#" class="nav-item" data-view="students">Students</a>
+      <a href="#" class="nav-item" data-view="papers">Question Papers</a>
+      <a href="#" class="nav-item" data-view="attendance">Attendance</a>
+      <a href="#" class="nav-item" data-view="marks">Marks Entry</a>
       <a href="#" class="nav-item" data-view="results">Results &amp; Report Cards</a>
+      <a href="#" class="nav-item" data-view="gazette">Gazette</a>
       <a href="#" class="nav-item" data-view="reports">Reports</a>
+      <a href="#" class="nav-item" data-view="promotion">Promotion</a>
+      <a href="#" class="nav-item" data-view="settings">Settings</a>
     </nav>
     <div class="sidebar-footer">
       <span id="sessionBadge">—</span>
@@ -141,11 +147,279 @@
       </div>
     </section>
 
-    <!-- Placeholder views for later phases -->
-    <section id="view-placeholder" class="view" style="display:none">
-      <div class="panel placeholder-panel">
-        <h3 id="placeholderTitle"></h3>
-        <p>This module ships in a later phase of the MGS Exam System build. The dashboard, data model, and API for it are already in place.</p>
+    <!-- ===== Exams ===== -->
+    <section id="view-exams" class="view" style="display:none">
+      <div class="panel">
+        <div class="panel-header"><h3>Create Exam</h3></div>
+        <form id="examForm" class="form-grid">
+          <div><label>Name</label><input type="text" id="examName" required placeholder="Mid Term Examination" /></div>
+          <div><label>Type</label>
+            <select id="examType">
+              <option value="term">Term</option>
+              <option value="midterm">Midterm</option>
+              <option value="final">Final</option>
+              <option value="test">Test</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div><label>Class</label><select id="examClass" required></select></div>
+          <div><label>Section (optional)</label><select id="examSection"><option value="">All sections</option></select></div>
+          <div><label>Start Date</label><input type="date" id="examStart" required /></div>
+          <div><label>End Date</label><input type="date" id="examEnd" required /></div>
+          <div class="form-actions"><button type="submit" class="btn btn-primary">Create Exam</button></div>
+        </form>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><h3>All Exams</h3></div>
+        <table class="data-table">
+          <thead><tr><th>Name</th><th>Type</th><th>Class</th><th>Dates</th><th>Status</th><th></th></tr></thead>
+          <tbody id="examsBody"><tr><td colspan="6" class="empty-row">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== Date Sheet ===== -->
+    <section id="view-datesheet" class="view" style="display:none">
+      <div class="panel">
+        <div class="toolbar">
+          <div><label>Exam</label><select id="dsExamSelect"></select></div>
+          <button id="dsPrintBtn" class="btn btn-ghost">🖨️ Print Date Sheet</button>
+        </div>
+        <form id="scheduleForm" class="form-grid">
+          <div><label>Subject</label><select id="schedSubject" required></select></div>
+          <div><label>Date</label><input type="date" id="schedDate" required /></div>
+          <div><label>Start Time</label><input type="time" id="schedStart" required /></div>
+          <div><label>End Time</label><input type="time" id="schedEnd" required /></div>
+          <div><label>Duration (mins)</label><input type="number" id="schedDuration" value="120" required /></div>
+          <div><label>Total Marks</label><input type="number" id="schedTotal" value="100" required /></div>
+          <div><label>Passing Marks</label><input type="number" id="schedPassing" value="33" required /></div>
+          <div><label>Room</label><input type="text" id="schedRoom" placeholder="Optional" /></div>
+          <div class="form-actions"><button type="submit" class="btn btn-primary">Add to Date Sheet</button></div>
+        </form>
+      </div>
+      <div class="panel" id="dateSheetPrintable">
+        <div class="panel-header"><h3 id="dsTitle">Date Sheet</h3></div>
+        <table class="data-table">
+          <thead><tr><th>Subject</th><th>Date</th><th>Time</th><th>Duration</th><th>Total</th><th>Passing</th><th>Room</th></tr></thead>
+          <tbody id="dateSheetBody"><tr><td colspan="7" class="empty-row">Select an exam</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== Classes & Subjects ===== -->
+    <section id="view-classes" class="view" style="display:none">
+      <div class="panel-grid">
+        <div class="panel">
+          <div class="panel-header"><h3>Classes</h3></div>
+          <form id="classForm" class="form-grid-inline">
+            <input type="text" id="newClassName" placeholder="Class name (e.g. Class 9)" required />
+            <input type="number" id="newClassOrder" placeholder="Sort order" value="0" />
+            <button type="submit" class="btn btn-primary">Add Class</button>
+          </form>
+          <table class="data-table">
+            <thead><tr><th>Class</th><th>Sections</th><th>Students</th></tr></thead>
+            <tbody id="classesBody"><tr><td colspan="3" class="empty-row">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h3>Sections</h3></div>
+          <form id="sectionForm" class="form-grid-inline">
+            <select id="secClassSelect" required></select>
+            <input type="text" id="newSectionName" placeholder="Section (e.g. A)" required />
+            <button type="submit" class="btn btn-primary">Add Section</button>
+          </form>
+          <table class="data-table">
+            <thead><tr><th>Class</th><th>Section</th></tr></thead>
+            <tbody id="sectionsBody"><tr><td colspan="2" class="empty-row">Select a class</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><h3>Subjects</h3></div>
+        <form id="subjectForm" class="form-grid-inline">
+          <input type="text" id="newSubjectName" placeholder="Subject name" required />
+          <input type="text" id="newSubjectCode" placeholder="Code (optional)" />
+          <select id="subjClassSelect"><option value="">Link to class (optional)</option></select>
+          <button type="submit" class="btn btn-primary">Add Subject</button>
+        </form>
+        <table class="data-table">
+          <thead><tr><th>Subject</th><th>Code</th></tr></thead>
+          <tbody id="subjectsBody"><tr><td colspan="2" class="empty-row">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== Students ===== -->
+    <section id="view-students" class="view" style="display:none">
+      <div class="panel">
+        <div class="panel-header"><h3>Add Student</h3></div>
+        <form id="studentForm" class="form-grid">
+          <div><label>Admission No</label><input type="text" id="stuAdmission" required /></div>
+          <div><label>Full Name</label><input type="text" id="stuName" required /></div>
+          <div><label>Roll Number</label><input type="text" id="stuRoll" /></div>
+          <div><label>Class</label><select id="stuClass" required></select></div>
+          <div><label>Section</label><select id="stuSection"><option value="">—</option></select></div>
+          <div><label>Guardian Name</label><input type="text" id="stuGuardian" /></div>
+          <div class="form-actions"><button type="submit" class="btn btn-primary">Add Student</button></div>
+        </form>
+      </div>
+      <div class="panel">
+        <div class="toolbar">
+          <div><label>Filter by Class</label><select id="stuFilterClass"><option value="">All classes</option></select></div>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Adm. No</th><th>Name</th><th>Roll</th><th>Class</th><th>Section</th><th>Status</th><th></th></tr></thead>
+          <tbody id="studentsBody"><tr><td colspan="7" class="empty-row">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== Question Papers ===== -->
+    <section id="view-papers" class="view" style="display:none">
+      <div class="panel">
+        <div class="toolbar">
+          <div><label>Exam</label><select id="paperExamSelect"></select></div>
+          <div><label>Subject</label><select id="paperSubjectSelect"></select></div>
+        </div>
+        <form id="paperForm" class="form-grid-inline">
+          <select id="paperVersion">
+            <option value="A">Version A</option><option value="B">Version B</option><option value="C">Version C</option>
+          </select>
+          <input type="text" id="paperTitle" placeholder="Paper title" required />
+          <input type="number" id="paperTotalMarks" placeholder="Total marks" value="100" />
+          <button type="submit" class="btn btn-primary">Create Paper</button>
+        </form>
+        <table class="data-table">
+          <thead><tr><th>Version</th><th>Title</th><th>Total Marks</th><th></th></tr></thead>
+          <tbody id="papersBody"><tr><td colspan="4" class="empty-row">Select an exam &amp; subject</td></tr></tbody>
+        </table>
+      </div>
+      <div class="panel" id="questionsPanel" style="display:none">
+        <div class="panel-header"><h3>Questions — <span id="questionsPaperTitle"></span></h3></div>
+        <form id="questionForm" class="form-grid">
+          <div><label>Type</label>
+            <select id="qType">
+              <option value="mcq">MCQ</option><option value="short">Short</option><option value="long">Long</option>
+              <option value="numerical">Numerical</option><option value="practical">Practical</option>
+            </select>
+          </div>
+          <div><label>Marks</label><input type="number" id="qMarks" value="1" /></div>
+          <div style="grid-column:1/-1"><label>Question Text</label><input type="text" id="qText" required /></div>
+          <div style="grid-column:1/-1"><label>Options (MCQ only, comma-separated)</label><input type="text" id="qOptions" placeholder="a, b, c, d" /></div>
+          <div><label>Correct Answer</label><input type="text" id="qAnswer" /></div>
+          <div class="form-actions"><button type="submit" class="btn btn-primary">Add Question</button></div>
+        </form>
+        <table class="data-table">
+          <thead><tr><th>#</th><th>Type</th><th>Question</th><th>Marks</th><th></th></tr></thead>
+          <tbody id="questionsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== Attendance ===== -->
+    <section id="view-attendance" class="view" style="display:none">
+      <div class="panel">
+        <div class="toolbar">
+          <div><label>Exam</label><select id="attExamSelect"></select></div>
+          <div><label>Subject</label><select id="attSubjectSelect"></select></div>
+          <button id="attSaveBtn" class="btn btn-primary">Save Attendance</button>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Roll</th><th>Name</th><th>Status</th></tr></thead>
+          <tbody id="attendanceBody"><tr><td colspan="3" class="empty-row">Select an exam &amp; subject</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== Marks Entry ===== -->
+    <section id="view-marks" class="view" style="display:none">
+      <div class="panel">
+        <div class="toolbar">
+          <div><label>Exam</label><select id="marksExamSelect"></select></div>
+          <div><label>Subject</label><select id="marksSubjectSelect"></select></div>
+          <button id="marksSaveBtn" class="btn btn-primary">Save Marks</button>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Roll</th><th>Name</th><th>Absent</th><th>Marks Obtained</th></tr></thead>
+          <tbody id="marksBody"><tr><td colspan="4" class="empty-row">Select an exam &amp; subject</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== Results & Report Cards ===== -->
+    <section id="view-results" class="view" style="display:none">
+      <div class="panel">
+        <div class="toolbar">
+          <div><label>Exam</label><select id="resultsExamSelect"></select></div>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Roll</th><th>Name</th><th>Total</th><th>%</th><th>Grade</th><th>Result</th><th>Position</th><th></th></tr></thead>
+          <tbody id="resultsBody"><tr><td colspan="8" class="empty-row">Select an exam</td></tr></tbody>
+        </table>
+      </div>
+      <div class="panel" id="resultCardPanel" style="display:none">
+        <div class="toolbar"><button id="cardPrintBtn" class="btn btn-ghost">🖨️ Print Result Card</button></div>
+        <div id="resultCard" class="result-card"></div>
+      </div>
+    </section>
+
+    <!-- ===== Gazette ===== -->
+    <section id="view-gazette" class="view" style="display:none">
+      <div class="panel">
+        <div class="toolbar">
+          <div><label>Exam</label><select id="gazExamSelect"></select></div>
+          <button id="gazPrintBtn" class="btn btn-ghost">🖨️ Print Gazette</button>
+        </div>
+        <div id="gazetteContent"></div>
+      </div>
+    </section>
+
+    <!-- ===== Reports ===== -->
+    <section id="view-reports" class="view" style="display:none">
+      <div class="panel">
+        <div class="panel-header"><h3>Exam-wise Reports</h3></div>
+        <table class="data-table">
+          <thead><tr><th>Exam</th><th>Class</th><th>Status</th><th></th></tr></thead>
+          <tbody id="reportsBody"><tr><td colspan="4" class="empty-row">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== Promotion ===== -->
+    <section id="view-promotion" class="view" style="display:none">
+      <div class="panel">
+        <div class="toolbar">
+          <div><label>From Class</label><select id="promoFromClass"></select></div>
+          <div><label>To Class</label><select id="promoToClass"></select></div>
+          <div><label>To Section</label><select id="promoToSection"><option value="">—</option></select></div>
+          <div><label>To Session</label><select id="promoToSession"></select></div>
+          <button id="promoBtn" class="btn btn-primary">Promote Selected</button>
+        </div>
+        <table class="data-table">
+          <thead><tr><th><input type="checkbox" id="promoSelectAll" /></th><th>Adm. No</th><th>Name</th><th>Current Class</th></tr></thead>
+          <tbody id="promotionBody"><tr><td colspan="4" class="empty-row">Select a class</td></tr></tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><h3>Promotion History</h3></div>
+        <table class="data-table">
+          <thead><tr><th>Student</th><th>From</th><th>To</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody id="promoHistoryBody"><tr><td colspan="5" class="empty-row">No records yet</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== Settings ===== -->
+    <section id="view-settings" class="view" style="display:none">
+      <div class="panel">
+        <div class="panel-header"><h3>School &amp; System Settings</h3></div>
+        <form id="settingsForm" class="form-grid">
+          <div><label>School Name</label><input type="text" id="setSchoolName" /></div>
+          <div style="grid-column:1/-1"><label>Grade Scale (JSON)</label><input type="text" id="setGradeScale" /></div>
+          <div><label>MGS Test System API URL</label><input type="text" id="setTestApi" placeholder="https://..." /></div>
+          <div><label>MGS Fee System API URL</label><input type="text" id="setFeeApi" placeholder="https://..." /></div>
+          <div class="form-actions"><button type="submit" class="btn btn-primary">Save Settings</button></div>
+        </form>
       </div>
     </section>
   </main>
