@@ -17,6 +17,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const studentRoutes = require('./routes/students');
 const promotionRoutes = require('./routes/promotions');
 const settingRoutes = require('./routes/settings');
+const adminMigrateRoutes = require('./routes/adminMigrate');
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/settings', settingRoutes);
+app.use('/api/admin/migrate', adminMigrateRoutes);
 
 app.use('/api', notFound);
 app.use(errorHandler);
