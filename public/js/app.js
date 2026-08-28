@@ -13,6 +13,59 @@
   let examsList = [];
   let studentsCache = [];
 
+  // ----- Toast notifications -----
+  function showToast(message, type = 'success') {
+    const container = $('toastContainer');
+    if (!container) return;
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    el.textContent = message;
+    container.appendChild(el);
+    setTimeout(() => {
+      el.classList.add('toast-out');
+      setTimeout(() => el.remove(), 200);
+    }, 3200);
+  }
+
+  // ----- Custom confirm dialog (replaces window.confirm) -----
+  function showConfirm(message, { confirmLabel = 'Delete', danger = true } = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal-box">
+          <p>${message}</p>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" type="button" data-modal="cancel">Cancel</button>
+            <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" type="button" data-modal="confirm">${confirmLabel}</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      const close = (result) => { overlay.remove(); resolve(result); };
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+      overlay.querySelector('[data-modal="cancel"]').addEventListener('click', () => close(false));
+      overlay.querySelector('[data-modal="confirm"]').addEventListener('click', () => close(true));
+    });
+  }
+
+  // ----- Button loading state -----
+  function setBtnLoading(btn, isLoading) {
+    if (!btn) return;
+    if (isLoading) {
+      if (btn.dataset.originalText === undefined) btn.dataset.originalText = btn.textContent;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner"></span>${btn.dataset.originalText}`;
+    } else {
+      btn.disabled = false;
+      if (btn.dataset.originalText !== undefined) btn.textContent = btn.dataset.originalText;
+    }
+  }
+
+  function submitBtnOf(e) {
+    return e.submitter || (e.target.querySelector ? e.target.querySelector('button[type="submit"]') : null);
+  }
+
   async function api(path, options = {}) {
     const res = await fetch(API + path, {
       ...options,
@@ -122,12 +175,27 @@
     showAuth();
   });
 
+  // ----- Mobile sidebar -----
+  const sidebarEl = document.querySelector('.sidebar');
+  const overlayEl = $('sidebarOverlay');
+  function closeSidebar() {
+    if (sidebarEl) sidebarEl.classList.remove('open');
+    if (overlayEl) overlayEl.classList.remove('open');
+  }
+  function toggleSidebar() {
+    if (sidebarEl) sidebarEl.classList.toggle('open');
+    if (overlayEl) overlayEl.classList.toggle('open');
+  }
+  if ($('hamburgerBtn')) $('hamburgerBtn').addEventListener('click', toggleSidebar);
+  if (overlayEl) overlayEl.addEventListener('click', closeSidebar);
+
   // ----- Navigation -----
   document.querySelectorAll('[data-view]').forEach((el) => {
     el.addEventListener('click', (e) => {
       e.preventDefault();
       const view = el.getAttribute('data-view');
       navigateTo(view);
+      closeSidebar();
     });
   });
 
@@ -283,9 +351,12 @@
         `).join('');
         tbody.querySelectorAll('[data-del-exam]').forEach((btn) => {
           btn.addEventListener('click', async () => {
-            if (!confirm('Delete this exam and all its data?')) return;
-            await api(`/exams/${btn.getAttribute('data-del-exam')}`, { method: 'DELETE' });
-            loadExamsView();
+            if (!(await showConfirm('Delete this exam and all its data? This cannot be undone.'))) return;
+            try {
+              await api(`/exams/${btn.getAttribute('data-del-exam')}`, { method: 'DELETE' });
+              showToast('Exam deleted.');
+              loadExamsView();
+            } catch (err) { showToast(err.message, 'error'); }
           });
         });
       }
@@ -294,6 +365,8 @@
 
   $('examForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const btn = submitBtnOf(e);
+    setBtnLoading(btn, true);
     try {
       const currentSession = sessionsList.find((s) => s.is_current) || sessionsList[0];
       await api('/exams', {
@@ -309,8 +382,9 @@
         }),
       });
       $('examForm').reset();
+      showToast('Exam created.');
       loadExamsView();
-    } catch (err) { alert(err.message); }
+    } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading(btn, false); }
   });
 
   // ===================================================================
@@ -333,6 +407,7 @@
     if (!examId) { tbody.innerHTML = '<tr><td colspan="7" class="empty-row">Select an exam</td></tr>'; return; }
     const exam = examsList.find((e) => e.id === examId);
     $('dsTitle').textContent = exam ? `Date Sheet — ${exam.name}` : 'Date Sheet';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-row">Loading…</td></tr>';
     const schedule = await api(`/exams/${examId}/schedule`);
     if (!schedule.length) {
       tbody.innerHTML = '<tr><td colspan="7" class="empty-row">No papers scheduled yet.</td></tr>';
@@ -355,7 +430,9 @@
   $('scheduleForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const examId = $('dsExamSelect').value;
-    if (!examId) return alert('Select an exam first');
+    if (!examId) return showToast('Select an exam first', 'error');
+    const btn = submitBtnOf(e);
+    setBtnLoading(btn, true);
     try {
       await api(`/exams/${examId}/schedule`, {
         method: 'POST',
@@ -372,8 +449,9 @@
       });
       $('scheduleForm').reset();
       $('schedDuration').value = 120; $('schedTotal').value = 100; $('schedPassing').value = 33;
+      showToast('Added to date sheet.');
       renderDateSheet();
-    } catch (err) { alert(err.message); }
+    } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading(btn, false); }
   });
 
   $('dsPrintBtn').addEventListener('click', () => window.print());
@@ -409,30 +487,38 @@
 
   $('classForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const btn = submitBtnOf(e);
+    setBtnLoading(btn, true);
     try {
       await api('/classes', {
         method: 'POST',
         body: JSON.stringify({ name: $('newClassName').value.trim(), sortOrder: Number($('newClassOrder').value) || 0 }),
       });
       $('classForm').reset();
+      showToast('Class added.');
       loadClassesView();
-    } catch (err) { alert(err.message); }
+    } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading(btn, false); }
   });
 
   $('sectionForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const btn = submitBtnOf(e);
+    setBtnLoading(btn, true);
     try {
       await api(`/classes/${$('secClassSelect').value}/sections`, {
         method: 'POST',
         body: JSON.stringify({ name: $('newSectionName').value.trim() }),
       });
       $('newSectionName').value = '';
+      showToast('Section added.');
       loadClassesView();
-    } catch (err) { alert(err.message); }
+    } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading(btn, false); }
   });
 
   $('subjectForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const btn = submitBtnOf(e);
+    setBtnLoading(btn, true);
     try {
       const subject = await api('/subjects', {
         method: 'POST',
@@ -443,8 +529,9 @@
         await api(`/classes/${classId}/subjects`, { method: 'POST', body: JSON.stringify({ subjectId: subject.id }) });
       }
       $('subjectForm').reset();
+      showToast('Subject added.');
       loadClassesView();
-    } catch (err) { alert(err.message); }
+    } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading(btn, false); }
   });
 
   // ===================================================================
@@ -464,8 +551,9 @@
 
   async function renderStudentsTable() {
     const classId = $('stuFilterClass').value;
-    studentsCache = await api(`/students${classId ? `?classId=${classId}` : ''}`);
     const tbody = $('studentsBody');
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-row">Loading…</td></tr>';
+    studentsCache = await api(`/students${classId ? `?classId=${classId}` : ''}`);
     tbody.innerHTML = studentsCache.map((s) => `
       <tr>
         <td>${s.admission_no}</td><td>${s.full_name}</td><td>${s.roll_number || '—'}</td>
@@ -475,15 +563,20 @@
     `).join('') || '<tr><td colspan="7" class="empty-row">No students yet.</td></tr>';
     tbody.querySelectorAll('[data-del-student]').forEach((btn) => {
       btn.addEventListener('click', async () => {
-        if (!confirm('Remove this student?')) return;
-        await api(`/students/${btn.getAttribute('data-del-student')}`, { method: 'DELETE' });
-        renderStudentsTable();
+        if (!(await showConfirm('Remove this student from records?'))) return;
+        try {
+          await api(`/students/${btn.getAttribute('data-del-student')}`, { method: 'DELETE' });
+          showToast('Student removed.');
+          renderStudentsTable();
+        } catch (err) { showToast(err.message, 'error'); }
       });
     });
   }
 
   $('studentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const btn = submitBtnOf(e);
+    setBtnLoading(btn, true);
     try {
       await api('/students', {
         method: 'POST',
@@ -497,8 +590,9 @@
         }),
       });
       $('studentForm').reset();
+      showToast('Student added.');
       renderStudentsTable();
-    } catch (err) { alert(err.message); }
+    } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading(btn, false); }
   });
 
   // ===================================================================
@@ -524,6 +618,7 @@
     const subjectId = $('paperSubjectSelect').value;
     const tbody = $('papersBody');
     if (!examId) { tbody.innerHTML = '<tr><td colspan="4" class="empty-row">Select an exam &amp; subject</td></tr>'; return; }
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-row">Loading…</td></tr>';
     const papers = (await api(`/exams/${examId}/papers`)).filter((p) => !subjectId || p.subject_id === subjectId);
     tbody.innerHTML = papers.map((p) => `
       <tr>
@@ -545,16 +640,20 @@
     });
     tbody.querySelectorAll('[data-del-paper]').forEach((btn) => {
       btn.addEventListener('click', async () => {
-        if (!confirm('Delete this paper?')) return;
-        await api(`/exams/${examId}/papers/${btn.getAttribute('data-del-paper')}`, { method: 'DELETE' });
-        renderPapersTable();
+        if (!(await showConfirm('Delete this paper and its questions?'))) return;
+        try {
+          await api(`/exams/${examId}/papers/${btn.getAttribute('data-del-paper')}`, { method: 'DELETE' });
+          showToast('Paper deleted.');
+          renderPapersTable();
+        } catch (err) { showToast(err.message, 'error'); }
       });
     });
   }
 
   async function renderQuestionsTable(examId) {
-    const questions = await api(`/exams/${examId}/papers/${currentPaperId}/questions`);
     const tbody = $('questionsBody');
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-row">Loading…</td></tr>';
+    const questions = await api(`/exams/${examId}/papers/${currentPaperId}/questions`);
     tbody.innerHTML = questions.map((q, i) => `
       <tr>
         <td>${i + 1}</td><td>${q.question_type}</td><td>${q.question_text}</td><td>${q.marks}</td>
@@ -563,8 +662,10 @@
     `).join('') || '<tr><td colspan="5" class="empty-row">No questions added yet.</td></tr>';
     tbody.querySelectorAll('[data-del-q]').forEach((btn) => {
       btn.addEventListener('click', async () => {
-        await api(`/exams/${examId}/papers/${currentPaperId}/questions/${btn.getAttribute('data-del-q')}`, { method: 'DELETE' });
-        renderQuestionsTable(examId);
+        try {
+          await api(`/exams/${examId}/papers/${currentPaperId}/questions/${btn.getAttribute('data-del-q')}`, { method: 'DELETE' });
+          renderQuestionsTable(examId);
+        } catch (err) { showToast(err.message, 'error'); }
       });
     });
   }
@@ -573,7 +674,9 @@
     e.preventDefault();
     const examId = $('paperExamSelect').value;
     const subjectId = $('paperSubjectSelect').value;
-    if (!examId || !subjectId) return alert('Select an exam and subject first');
+    if (!examId || !subjectId) return showToast('Select an exam and subject first', 'error');
+    const btn = submitBtnOf(e);
+    setBtnLoading(btn, true);
     try {
       await api(`/exams/${examId}/papers`, {
         method: 'POST',
@@ -583,14 +686,17 @@
         }),
       });
       $('paperTitle').value = '';
+      showToast('Paper created.');
       renderPapersTable();
-    } catch (err) { alert(err.message); }
+    } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading(btn, false); }
   });
 
   $('questionForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const examId = $('paperExamSelect').value;
     if (!currentPaperId) return;
+    const btn = submitBtnOf(e);
+    setBtnLoading(btn, true);
     try {
       const type = $('qType').value;
       const optionsRaw = $('qOptions').value.trim();
@@ -606,7 +712,7 @@
       });
       $('questionForm').reset();
       renderQuestionsTable(examId);
-    } catch (err) { alert(err.message); }
+    } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading(btn, false); }
   });
 
   // ===================================================================
@@ -638,6 +744,7 @@
     const subjectId = $('attSubjectSelect').value;
     const tbody = $('attendanceBody');
     if (!examId || !subjectId) { tbody.innerHTML = '<tr><td colspan="3" class="empty-row">Select an exam &amp; subject</td></tr>'; return; }
+    tbody.innerHTML = '<tr><td colspan="3" class="empty-row">Loading…</td></tr>';
     const [roster, existing] = await Promise.all([rosterForExam(examId), api(`/exams/${examId}/attendance/${subjectId}`)]);
     const statusMap = {};
     existing.forEach((a) => { statusMap[a.student_id] = a.status; });
@@ -661,10 +768,11 @@
     const entries = [...document.querySelectorAll('[data-att-student]')].map((el) => ({
       studentId: el.getAttribute('data-att-student'), status: el.value,
     }));
+    setBtnLoading($('attSaveBtn'), true);
     try {
       await api(`/exams/${examId}/attendance/${subjectId}`, { method: 'POST', body: JSON.stringify({ entries }) });
-      alert('Attendance saved.');
-    } catch (err) { alert(err.message); }
+      showToast('Attendance saved.');
+    } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading($('attSaveBtn'), false); }
   });
 
   // ===================================================================
@@ -687,6 +795,7 @@
     const subjectId = $('marksSubjectSelect').value;
     const tbody = $('marksBody');
     if (!examId || !subjectId) { tbody.innerHTML = '<tr><td colspan="4" class="empty-row">Select an exam &amp; subject</td></tr>'; return; }
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-row">Loading…</td></tr>';
     const [roster, existing] = await Promise.all([rosterForExam(examId), api(`/exams/${examId}/marks/${subjectId}`)]);
     const markMap = {};
     existing.forEach((m) => { markMap[m.student_id] = m; });
@@ -709,10 +818,11 @@
       const isAbsent = document.querySelector(`[data-abs-student="${studentId}"]`).checked;
       return { studentId, marksObtained: el.value === '' ? null : Number(el.value), isAbsent };
     });
+    setBtnLoading($('marksSaveBtn'), true);
     try {
       await api(`/exams/${examId}/marks/${subjectId}`, { method: 'POST', body: JSON.stringify({ entries }) });
-      alert('Marks saved.');
-    } catch (err) { alert(err.message); }
+      showToast('Marks saved.');
+    } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading($('marksSaveBtn'), false); }
   });
 
   // ===================================================================
@@ -732,6 +842,7 @@
     const examId = $('resultsExamSelect').value;
     const tbody = $('resultsBody');
     if (!examId) { tbody.innerHTML = '<tr><td colspan="8" class="empty-row">Select an exam</td></tr>'; return; }
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-row">Loading…</td></tr>';
     const { results } = await api(`/exams/${examId}/results`);
     tbody.innerHTML = results.map((r) => `
       <tr>
@@ -811,6 +922,7 @@
     const examId = $('gazExamSelect').value;
     const el = $('gazetteContent');
     if (!examId) { el.innerHTML = '<p class="empty-row">Select an exam.</p>'; return; }
+    el.innerHTML = '<p class="empty-row">Loading…</p>';
     const g = await api(`/exams/${examId}/gazette`);
     el.innerHTML = `
       <h3>${g.exam.name}</h3>
@@ -901,6 +1013,7 @@
     const classId = $('promoFromClass').value;
     const tbody = $('promotionBody');
     if (!classId) { tbody.innerHTML = '<tr><td colspan="4" class="empty-row">Select a class</td></tr>'; return; }
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-row">Loading…</td></tr>';
     const roster = await api(`/students?classId=${classId}`);
     tbody.innerHTML = roster.map((s) => `
       <tr>
@@ -920,16 +1033,18 @@
     const toSectionId = $('promoToSection').value || null;
     const toSessionId = $('promoToSession').value;
     const selected = [...document.querySelectorAll('[data-promo-student]:checked')].map((c) => c.getAttribute('data-promo-student'));
-    if (!selected.length) return alert('Select at least one student');
-    if (!toClassId || !toSessionId) return alert('Select a target class and session');
+    if (!selected.length) return showToast('Select at least one student', 'error');
+    if (!toClassId || !toSessionId) return showToast('Select a target class and session', 'error');
+    if (!(await showConfirm(`Promote ${selected.length} student(s) to the selected class?`, { confirmLabel: 'Promote', danger: false }))) return;
+    setBtnLoading($('promoBtn'), true);
     try {
       const entries = selected.map((studentId) => ({
         studentId, fromClassId, toClassId, toSectionId, toSessionId, status: 'promoted',
       }));
       await api('/promotions/bulk', { method: 'POST', body: JSON.stringify({ entries }) });
-      alert(`${selected.length} student(s) promoted.`);
+      showToast(`${selected.length} student(s) promoted.`);
       renderPromotionRoster();
-    } catch (err) { alert(err.message); }
+    } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading($('promoBtn'), false); }
   });
 
   // ===================================================================
@@ -947,6 +1062,8 @@
 
   $('settingsForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const btn = submitBtnOf(e);
+    setBtnLoading(btn, true);
     try {
       await Promise.all([
         api('/settings/school_name', { method: 'PUT', body: JSON.stringify({ value: $('setSchoolName').value }) }),
@@ -954,8 +1071,8 @@
         api('/settings/mgs_test_system_api_url', { method: 'PUT', body: JSON.stringify({ value: $('setTestApi').value }) }),
         api('/settings/mgs_fee_system_api_url', { method: 'PUT', body: JSON.stringify({ value: $('setFeeApi').value }) }),
       ]);
-      alert('Settings saved.');
-    } catch (err) { alert(err.message); }
+      showToast('Settings saved.');
+    } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading(btn, false); }
   });
 
   // ----- Boot -----
