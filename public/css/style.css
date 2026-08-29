@@ -250,8 +250,9 @@ select {
   background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
   padding: 24px; max-width: 380px; width: 100%;
 }
+.modal-box.modal-form { max-width: 620px; }
 .modal-box p { margin: 0 0 20px; font-size: 14px; color: var(--navy-950); line-height: 1.5; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
 .btn-danger { background: var(--danger-500); color: #fff; }
 .btn-danger:hover { background: #a5321f; }
 
