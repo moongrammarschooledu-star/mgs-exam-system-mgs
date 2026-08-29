@@ -14,7 +14,9 @@ const Student = {
        LEFT JOIN classes c ON c.id = s.class_id
        LEFT JOIN sections sec ON sec.id = s.section_id
        ${where}
-       ORDER BY c.sort_order NULLS LAST, sec.name, s.roll_number, s.full_name`,
+       ORDER BY c.sort_order NULLS LAST, sec.name NULLS LAST,
+         (CASE WHEN s.admission_no ~ '^[0-9]+$' THEN s.admission_no::int END) NULLS LAST,
+         s.admission_no, s.full_name`,
       params
     );
     return rows;
@@ -42,18 +44,34 @@ const Student = {
     return rows[0];
   },
 
-  async update(id, { fullName, rollNumber, classId, sectionId, photoUrl, guardianName, status }) {
+  // Only columns whose keys are actually present in `fields` are updated —
+  // this lets a field be explicitly cleared (e.g. sectionId: null) without
+  // COALESCE silently keeping the old value, while omitted keys are left
+  // untouched.
+  async update(id, fields) {
+    const COLUMN_BY_KEY = {
+      admissionNo: 'admission_no',
+      fullName: 'full_name',
+      rollNumber: 'roll_number',
+      classId: 'class_id',
+      sectionId: 'section_id',
+      photoUrl: 'photo_url',
+      guardianName: 'guardian_name',
+      status: 'status',
+    };
+    const sets = [];
+    const params = [id];
+    for (const [key, column] of Object.entries(COLUMN_BY_KEY)) {
+      if (Object.prototype.hasOwnProperty.call(fields, key)) {
+        params.push(fields[key]);
+        sets.push(`${column} = $${params.length}`);
+      }
+    }
+    if (!sets.length) return Student.findById(id);
+    sets.push('updated_at = now()');
     const { rows } = await db.query(
-      `UPDATE students SET
-         full_name = COALESCE($2, full_name),
-         roll_number = COALESCE($3, roll_number),
-         class_id = COALESCE($4, class_id),
-         section_id = COALESCE($5, section_id),
-         photo_url = COALESCE($6, photo_url),
-         guardian_name = COALESCE($7, guardian_name),
-         status = COALESCE($8, status)
-       WHERE id = $1 RETURNING *`,
-      [id, fullName, rollNumber, classId, sectionId, photoUrl, guardianName, status]
+      `UPDATE students SET ${sets.join(', ')} WHERE id = $1 RETURNING *`,
+      params
     );
     return rows[0] || null;
   },
