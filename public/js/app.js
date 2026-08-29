@@ -304,12 +304,21 @@
     ]);
   }
 
-  function fillSelect(el, items, { valueKey = 'id', labelKey = 'name', placeholder, keepFirst = false } = {}) {
+  function fillSelect(el, items, { valueKey = 'id', labelKey = 'name', labelFn, placeholder, keepFirst = false } = {}) {
     if (!el) return;
     const currentValue = el.value;
     const head = keepFirst && el.options.length ? `<option value="${el.options[0].value}">${el.options[0].textContent}</option>` : (placeholder ? `<option value="">${placeholder}</option>` : '');
-    el.innerHTML = head + items.map((it) => `<option value="${it[valueKey]}">${it[labelKey]}</option>`).join('');
+    const label = labelFn || ((it) => it[labelKey]);
+    el.innerHTML = head + items.map((it) => `<option value="${it[valueKey]}">${label(it)}</option>`).join('');
     if ([...el.options].some((o) => o.value === currentValue)) el.value = currentValue;
+  }
+
+  // Exam dropdown label: many schools reuse the same exam name (e.g. "Mid
+  // Term Examination") across every class, so the class/section must be
+  // shown too or every option in the list looks identical.
+  function examLabel(ex) {
+    const cls = ex.class_name ? `${ex.class_name}${ex.section_name ? ' - ' + ex.section_name : ''}` : '';
+    return cls ? `${ex.name} — ${cls}` : ex.name;
   }
 
   function sectionsForClass(classId) {
@@ -394,7 +403,7 @@
     try {
       await loadLookups();
       if (!examsList.length) examsList = await api('/exams');
-      fillSelect($('dsExamSelect'), examsList, { labelKey: 'name' });
+      fillSelect($('dsExamSelect'), examsList, { labelFn: examLabel });
       fillSelect($('schedSubject'), subjects);
       $('dsExamSelect').onchange = renderDateSheet;
       renderDateSheet();
@@ -406,7 +415,7 @@
     const tbody = $('dateSheetBody');
     if (!examId) { tbody.innerHTML = '<tr><td colspan="7" class="empty-row">Select an exam</td></tr>'; return; }
     const exam = examsList.find((e) => e.id === examId);
-    $('dsTitle').textContent = exam ? `Date Sheet — ${exam.name}` : 'Date Sheet';
+    $('dsTitle').textContent = exam ? `Date Sheet — ${examLabel(exam)}` : 'Date Sheet';
     tbody.innerHTML = '<tr><td colspan="7" class="empty-row">Loading…</td></tr>';
     const schedule = await api(`/exams/${examId}/schedule`);
     if (!schedule.length) {
@@ -604,7 +613,7 @@
     try {
       await loadLookups();
       if (!examsList.length) examsList = await api('/exams');
-      fillSelect($('paperExamSelect'), examsList, { labelKey: 'name' });
+      fillSelect($('paperExamSelect'), examsList, { labelFn: examLabel });
       fillSelect($('paperSubjectSelect'), subjects);
       $('paperExamSelect').onchange = renderPapersTable;
       $('paperSubjectSelect').onchange = renderPapersTable;
@@ -731,7 +740,7 @@
     try {
       await loadLookups();
       if (!examsList.length) examsList = await api('/exams');
-      fillSelect($('attExamSelect'), examsList, { labelKey: 'name' });
+      fillSelect($('attExamSelect'), examsList, { labelFn: examLabel });
       fillSelect($('attSubjectSelect'), subjects);
       $('attExamSelect').onchange = renderAttendanceTable;
       $('attSubjectSelect').onchange = renderAttendanceTable;
@@ -782,7 +791,7 @@
     try {
       await loadLookups();
       if (!examsList.length) examsList = await api('/exams');
-      fillSelect($('marksExamSelect'), examsList, { labelKey: 'name' });
+      fillSelect($('marksExamSelect'), examsList, { labelFn: examLabel });
       fillSelect($('marksSubjectSelect'), subjects);
       $('marksExamSelect').onchange = renderMarksTable;
       $('marksSubjectSelect').onchange = renderMarksTable;
@@ -831,7 +840,7 @@
   async function loadResultsView() {
     try {
       if (!examsList.length) examsList = await api('/exams');
-      fillSelect($('resultsExamSelect'), examsList, { labelKey: 'name' });
+      fillSelect($('resultsExamSelect'), examsList, { labelFn: examLabel });
       $('resultsExamSelect').onchange = renderResultsTable;
       $('resultCardPanel').style.display = 'none';
       renderResultsTable();
@@ -913,7 +922,7 @@
   async function loadGazetteView() {
     try {
       if (!examsList.length) examsList = await api('/exams');
-      fillSelect($('gazExamSelect'), examsList, { labelKey: 'name' });
+      fillSelect($('gazExamSelect'), examsList, { labelFn: examLabel });
       $('gazExamSelect').onchange = renderGazette;
       renderGazette();
     } catch (err) { handleAuthError(err); }
@@ -934,7 +943,7 @@
         <h2>${settings.school_name || 'Moon Grammar School'}</h2>
         <p class="school-contact">1037-E-1 Johar Town, Lahore &nbsp;·&nbsp; 0308-6010310</p>
       </div>
-      <h3>${g.exam.name} — Result Gazette</h3>
+      <h3>${examLabel(examsList.find((e) => e.id === examId) || g.exam)} — Result Gazette</h3>
       <div class="gazette-stats">
         <div class="stat-card"><span class="stat-label">Total Students</span><span class="stat-value">${g.totalStudents}</span></div>
         <div class="stat-card accent-live"><span class="stat-label">Passed</span><span class="stat-value">${g.passCount}</span></div>
