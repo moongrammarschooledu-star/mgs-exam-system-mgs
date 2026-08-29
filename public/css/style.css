@@ -60,6 +60,17 @@ button { font-family: inherit; cursor: pointer; }
 .brand h1 { font-size: 19px; margin: 0 0 4px; color: var(--navy-950); }
 .brand p { margin: 0; color: var(--text-muted); font-size: 13px; }
 
+.brand-logo {
+  width: 84px; height: auto;
+  margin: 0 auto 12px;
+  display: block;
+  filter: drop-shadow(0 3px 8px rgba(10,17,40,0.25));
+}
+.brand-logo.small { width: 40px; margin: 0; }
+.school-contact {
+  margin: 6px 0 0; color: var(--text-muted); font-size: 11.5px; line-height: 1.5;
+}
+
 form label {
   display: block; font-size: 12px; font-weight: 600;
   color: var(--navy-800); margin: 14px 0 6px;
@@ -98,6 +109,10 @@ form input:focus { outline: none; border-color: var(--gold-500); box-shadow: 0 0
 .sidebar-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
 .sidebar-brand strong { display: block; font-size: 14px; }
 .sidebar-brand span { display: block; font-size: 11px; color: rgba(255,255,255,0.6); }
+
+.sidebar-contact {
+  font-size: 10.5px; color: rgba(255,255,255,0.55); line-height: 1.6; margin-bottom: 10px;
+}
 
 .sidebar-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .nav-item {
@@ -187,6 +202,11 @@ select {
 .result-card-header { text-align: center; border-bottom: 2px solid var(--gold-500); padding-bottom: 14px; margin-bottom: 18px; }
 .result-card-header h2 { margin: 6px 0 2px; }
 .result-card-header p { margin: 0; color: var(--text-muted); font-size: 13px; }
+.result-card-header .school-contact { text-align: center; margin-top: 4px; }
+.gazette-header { text-align: center; margin-bottom: 18px; }
+.gazette-header .brand-logo { width: 64px; }
+.gazette-header h2 { margin: 6px 0 2px; }
+.gazette-header .school-contact { text-align: center; }
 .result-card-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; font-size: 13px; margin-bottom: 16px; }
 .result-card-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; text-align: center; }
 .result-card-summary div { background: var(--navy-100); border-radius: 8px; padding: 10px; }
