@@ -271,17 +271,18 @@
           <div><label>Roll Number</label><input type="text" id="stuRoll" /></div>
           <div><label>Class</label><select id="stuClass" required></select></div>
           <div><label>Section</label><select id="stuSection"><option value="">—</option></select></div>
-          <div><label>Guardian Name</label><input type="text" id="stuGuardian" /></div>
+          <div><label>Guardian Name</label><input type="text" id="stuGuardian" required /></div>
           <div class="form-actions"><button type="submit" class="btn btn-primary">Add Student</button></div>
         </form>
       </div>
       <div class="panel">
         <div class="toolbar">
           <div><label>Filter by Class</label><select id="stuFilterClass"><option value="">All classes</option></select></div>
+          <div><label>Search</label><input type="text" id="stuSearch" placeholder="Name, admission no, or guardian" /></div>
         </div>
         <table class="data-table">
-          <thead><tr><th>Adm. No</th><th>Name</th><th>Roll</th><th>Class</th><th>Section</th><th>Status</th><th></th></tr></thead>
-          <tbody id="studentsBody"><tr><td colspan="7" class="empty-row">Loading…</td></tr></tbody>
+          <thead><tr><th>Adm. No</th><th>Name</th><th>Roll</th><th>Class</th><th>Section</th><th>Guardian</th><th>Status</th><th></th></tr></thead>
+          <tbody id="studentsBody"><tr><td colspan="8" class="empty-row">Loading…</td></tr></tbody>
         </table>
       </div>
     </section>
