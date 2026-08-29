@@ -554,22 +554,64 @@
       classSectionSelects($('stuClass'), $('stuSection'), '—');
       fillSelect($('stuFilterClass'), classes, { placeholder: 'All classes' });
       $('stuFilterClass').onchange = renderStudentsTable;
+      $('stuSearch').oninput = renderStudentsRows;
       await renderStudentsTable();
+      suggestNextAdmissionNo();
     } catch (err) { handleAuthError(err); }
+  }
+
+  // Admission numbers are meant to run in one unbroken series. Suggest the
+  // next one (zero-padded to match the existing width) so staff don't have
+  // to work it out by hand and accidentally create gaps or out-of-order
+  // numbers — the field stays editable if a specific number is needed.
+  function computeNextAdmissionNo(students) {
+    let max = 0;
+    let width = 2;
+    students.forEach((s) => {
+      const n = String(s.admission_no || '').trim();
+      if (/^\d+$/.test(n)) {
+        const val = parseInt(n, 10);
+        if (val > max) max = val;
+        width = Math.max(width, n.length);
+      }
+    });
+    return String(max + 1).padStart(width, '0');
+  }
+
+  async function suggestNextAdmissionNo() {
+    try {
+      const all = await api('/students');
+      if (!$('stuAdmission').value.trim()) $('stuAdmission').value = computeNextAdmissionNo(all);
+    } catch (_) { /* non-critical */ }
   }
 
   async function renderStudentsTable() {
     const classId = $('stuFilterClass').value;
     const tbody = $('studentsBody');
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-row">Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-row">Loading…</td></tr>';
     studentsCache = await api(`/students${classId ? `?classId=${classId}` : ''}`);
-    tbody.innerHTML = studentsCache.map((s) => `
+    renderStudentsRows();
+  }
+
+  function renderStudentsRows() {
+    const tbody = $('studentsBody');
+    const q = ($('stuSearch').value || '').trim().toLowerCase();
+    const rows = !q ? studentsCache : studentsCache.filter((s) =>
+      (s.full_name || '').toLowerCase().includes(q) ||
+      (s.admission_no || '').toLowerCase().includes(q) ||
+      (s.guardian_name || '').toLowerCase().includes(q)
+    );
+    tbody.innerHTML = rows.map((s) => `
       <tr>
         <td>${s.admission_no}</td><td>${s.full_name}</td><td>${s.roll_number || '—'}</td>
-        <td>${s.class_name || '—'}</td><td>${s.section_name || '—'}</td><td>${s.status}</td>
-        <td class="table-actions"><button class="btn btn-ghost btn-sm" data-del-student="${s.id}">Delete</button></td>
+        <td>${s.class_name || '—'}</td><td>${s.section_name || '—'}</td><td>${s.guardian_name || '—'}</td><td>${s.status}</td>
+        <td class="table-actions">
+          <button class="btn btn-ghost btn-sm" data-edit-student="${s.id}">Edit</button>
+          <button class="btn btn-ghost btn-sm" data-del-student="${s.id}">Delete</button>
+        </td>
       </tr>
-    `).join('') || '<tr><td colspan="7" class="empty-row">No students yet.</td></tr>';
+    `).join('') || `<tr><td colspan="8" class="empty-row">${q ? 'No matching students.' : 'No students yet.'}</td></tr>`;
+
     tbody.querySelectorAll('[data-del-student]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         if (!(await showConfirm('Remove this student from records?'))) return;
@@ -579,6 +621,84 @@
           renderStudentsTable();
         } catch (err) { showToast(err.message, 'error'); }
       });
+    });
+    tbody.querySelectorAll('[data-edit-student]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const student = studentsCache.find((s) => s.id === btn.getAttribute('data-edit-student'));
+        if (student) showEditStudentModal(student);
+      });
+    });
+  }
+
+  // ----- Edit Student modal -----
+  function showEditStudentModal(student) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-box modal-form">
+        <h3 style="margin:0 0 16px">Edit Student</h3>
+        <form id="editStudentForm" class="form-grid">
+          <div><label>Admission No</label><input type="text" id="editStuAdmission" required /></div>
+          <div><label>Full Name</label><input type="text" id="editStuName" required /></div>
+          <div><label>Roll Number</label><input type="text" id="editStuRoll" /></div>
+          <div><label>Class</label><select id="editStuClass" required></select></div>
+          <div><label>Section</label><select id="editStuSection"><option value="">—</option></select></div>
+          <div><label>Guardian Name</label><input type="text" id="editStuGuardian" required /></div>
+          <div><label>Status</label>
+            <select id="editStuStatus">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="graduated">Graduated</option>
+              <option value="left">Left</option>
+            </select>
+          </div>
+          <div class="modal-actions" style="grid-column:1/-1">
+            <button type="button" class="btn btn-ghost" data-modal="cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('[data-modal="cancel"]').addEventListener('click', close);
+
+    const classSel = overlay.querySelector('#editStuClass');
+    const sectionSel = overlay.querySelector('#editStuSection');
+    fillSelect(classSel, classes);
+    classSel.value = student.class_id || '';
+    fillSelect(sectionSel, sectionsForClass(classSel.value), { placeholder: '—' });
+    sectionSel.value = student.section_id || '';
+    classSectionSelects(classSel, sectionSel, '—');
+
+    overlay.querySelector('#editStuAdmission').value = student.admission_no || '';
+    overlay.querySelector('#editStuName').value = student.full_name || '';
+    overlay.querySelector('#editStuRoll').value = student.roll_number || '';
+    overlay.querySelector('#editStuGuardian').value = student.guardian_name || '';
+    overlay.querySelector('#editStuStatus').value = student.status || 'active';
+
+    overlay.querySelector('#editStudentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = submitBtnOf(e);
+      setBtnLoading(btn, true);
+      try {
+        await api(`/students/${student.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            admissionNo: overlay.querySelector('#editStuAdmission').value.trim(),
+            fullName: overlay.querySelector('#editStuName').value.trim(),
+            rollNumber: overlay.querySelector('#editStuRoll').value.trim() || null,
+            classId: classSel.value || null,
+            sectionId: sectionSel.value || null,
+            guardianName: overlay.querySelector('#editStuGuardian').value.trim(),
+            status: overlay.querySelector('#editStuStatus').value,
+          }),
+        });
+        showToast('Student updated.');
+        close();
+        renderStudentsTable();
+      } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading(btn, false); }
     });
   }
 
@@ -595,12 +715,13 @@
           rollNumber: $('stuRoll').value.trim() || null,
           classId: $('stuClass').value,
           sectionId: $('stuSection').value || null,
-          guardianName: $('stuGuardian').value.trim() || null,
+          guardianName: $('stuGuardian').value.trim(),
         }),
       });
       $('studentForm').reset();
       showToast('Student added.');
       renderStudentsTable();
+      suggestNextAdmissionNo();
     } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading(btn, false); }
   });
 
