@@ -869,9 +869,10 @@
     $('resultCardPanel').style.display = 'block';
     $('resultCard').innerHTML = `
       <div class="result-card-header">
-        <div class="brand-badge" style="margin:0 auto 8px">MGS</div>
+        <img src="/img/mgs-logo.png" alt="Moon Grammar School logo" class="brand-logo" style="width:64px" />
         <h2>${settings.school_name || 'Moon Grammar School'}</h2>
         <p>Result Card — ${exam.name}</p>
+        <p class="school-contact">1037-E-1 Johar Town, Lahore &nbsp;·&nbsp; 0308-6010310</p>
       </div>
       <div class="result-card-meta">
         <div><strong>Name:</strong> ${student.full_name}</div>
@@ -923,9 +924,17 @@
     const el = $('gazetteContent');
     if (!examId) { el.innerHTML = '<p class="empty-row">Select an exam.</p>'; return; }
     el.innerHTML = '<p class="empty-row">Loading…</p>';
-    const g = await api(`/exams/${examId}/gazette`);
+    const [g, settings] = await Promise.all([
+      api(`/exams/${examId}/gazette`),
+      api('/settings'),
+    ]);
     el.innerHTML = `
-      <h3>${g.exam.name}</h3>
+      <div class="gazette-header">
+        <img src="/img/mgs-logo.png" alt="Moon Grammar School logo" class="brand-logo" />
+        <h2>${settings.school_name || 'Moon Grammar School'}</h2>
+        <p class="school-contact">1037-E-1 Johar Town, Lahore &nbsp;·&nbsp; 0308-6010310</p>
+      </div>
+      <h3>${g.exam.name} — Result Gazette</h3>
       <div class="gazette-stats">
         <div class="stat-card"><span class="stat-label">Total Students</span><span class="stat-value">${g.totalStudents}</span></div>
         <div class="stat-card accent-live"><span class="stat-label">Passed</span><span class="stat-value">${g.passCount}</span></div>
