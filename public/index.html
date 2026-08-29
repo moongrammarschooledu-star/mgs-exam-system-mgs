@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MGS Exam System — Moon Grammar School</title>
+<link rel="icon" type="image/png" href="/img/mgs-logo.png" />
 <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
@@ -12,9 +13,10 @@
 <div id="loginScreen" class="auth-screen">
   <div class="auth-card">
     <div class="brand">
-      <div class="brand-badge">MGS</div>
+      <img src="/img/mgs-logo.png" alt="Moon Grammar School logo" class="brand-logo" />
       <h1>Moon Grammar School</h1>
       <p>Exam Management System</p>
+      <p class="school-contact">1037-E-1 Johar Town, Lahore &nbsp;·&nbsp; 0308-6010310</p>
     </div>
     <form id="loginForm">
       <label>Email</label>
@@ -30,7 +32,7 @@
   <!-- Registration (hidden by default) -->
   <div class="auth-card" id="registerCard" style="display:none">
     <div class="brand">
-      <div class="brand-badge">MGS</div>
+      <img src="/img/mgs-logo.png" alt="Moon Grammar School logo" class="brand-logo" />
       <h1>Create Account</h1>
       <p>First account created becomes the system administrator</p>
     </div>
@@ -52,7 +54,7 @@
 <div id="appScreen" class="app-shell" style="display:none">
   <aside class="sidebar">
     <div class="sidebar-brand">
-      <div class="brand-badge small">MGS</div>
+      <img src="/img/mgs-logo.png" alt="Moon Grammar School logo" class="brand-logo small" />
       <div>
         <strong>MGS Exam System</strong>
         <span>Moon Grammar School</span>
@@ -74,6 +76,7 @@
       <a href="#" class="nav-item" data-view="settings">Settings</a>
     </nav>
     <div class="sidebar-footer">
+      <div class="sidebar-contact">1037-E-1 Johar Town, Lahore<br />☎ 0308-6010310</div>
       <span id="sessionBadge">—</span>
     </div>
   </aside>
@@ -202,6 +205,11 @@
         </form>
       </div>
       <div class="panel" id="dateSheetPrintable">
+        <div class="gazette-header">
+          <img src="/img/mgs-logo.png" alt="Moon Grammar School logo" class="brand-logo" style="width:56px" />
+          <h2 style="margin:4px 0 0;font-size:16px">Moon Grammar School</h2>
+          <p class="school-contact">1037-E-1 Johar Town, Lahore &nbsp;·&nbsp; 0308-6010310</p>
+        </div>
         <div class="panel-header"><h3 id="dsTitle">Date Sheet</h3></div>
         <table class="data-table">
           <thead><tr><th>Subject</th><th>Date</th><th>Time</th><th>Duration</th><th>Total</th><th>Passing</th><th>Room</th></tr></thead>
