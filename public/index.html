@@ -64,6 +64,7 @@
       <a href="#" class="nav-item active" data-view="dashboard">Dashboard</a>
       <a href="#" class="nav-item" data-view="exams">Exams</a>
       <a href="#" class="nav-item" data-view="datesheet">Date Sheet</a>
+      <a href="#" class="nav-item" data-view="rollslips">Roll No Slips</a>
       <a href="#" class="nav-item" data-view="classes">Classes &amp; Subjects</a>
       <a href="#" class="nav-item" data-view="students">Students</a>
       <a href="#" class="nav-item" data-view="papers">Question Papers</a>
@@ -147,6 +148,7 @@
           <div class="quick-actions">
             <button class="quick-action" data-view="exams">+ Create Exam</button>
             <button class="quick-action" data-view="datesheet">📅 Build Date Sheet</button>
+            <button class="quick-action" data-view="rollslips">🎫 Print Roll No Slips</button>
             <button class="quick-action" data-view="classes">🏫 Manage Classes</button>
             <button class="quick-action" data-view="results">🏆 Enter Results</button>
           </div>
@@ -216,6 +218,21 @@
           <tbody id="dateSheetBody"><tr><td colspan="7" class="empty-row">Select an exam</td></tr></tbody>
         </table>
       </div>
+    </section>
+
+    <!-- ===== Roll Number Slips ===== -->
+    <section id="view-rollslips" class="view" style="display:none">
+      <div class="panel rs-roster-panel">
+        <div class="toolbar">
+          <div><label>Exam</label><select id="rsExamSelect"></select></div>
+          <button id="rsPrintBtn" class="btn btn-ghost">🖨️ Print Roll Number Slips</button>
+        </div>
+        <table class="data-table">
+          <thead><tr><th><input type="checkbox" id="rsSelectAll" /></th><th>Roll</th><th>Adm. No</th><th>Name</th><th>Class</th><th>Guardian</th></tr></thead>
+          <tbody id="rsRosterBody"><tr><td colspan="6" class="empty-row">Select an exam</td></tr></tbody>
+        </table>
+      </div>
+      <div id="rollSlipsPrintable" class="rollslip-grid"></div>
     </section>
 
     <!-- ===== Classes & Subjects ===== -->
