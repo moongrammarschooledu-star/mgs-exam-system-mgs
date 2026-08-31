@@ -203,6 +203,7 @@
     dashboard: ['Dashboard', 'Exam overview at a glance'],
     exams: ['Exams', 'Create and manage exams'],
     datesheet: ['Date Sheet', 'Build and publish exam schedules'],
+    rollslips: ['Roll Number Slips', 'Generate and print student roll number slips with date sheet details'],
     classes: ['Classes & Subjects', 'Manage class structure and subjects'],
     students: ['Students', 'Student exam records'],
     papers: ['Question Papers', 'Create and manage question papers'],
@@ -219,6 +220,7 @@
     dashboard: loadDashboard,
     exams: loadExamsView,
     datesheet: loadDateSheetView,
+    rollslips: loadRollSlipsView,
     classes: loadClassesView,
     students: loadStudentsView,
     papers: loadPapersView,
@@ -464,6 +466,126 @@
   });
 
   $('dsPrintBtn').addEventListener('click', () => window.print());
+
+  // ===================================================================
+  // ROLL NUMBER SLIPS (bonus feature — admit-card style slips combining
+  // each student's details with that exam's published date sheet)
+  // ===================================================================
+  let rsRosterCache = [];
+
+  async function loadRollSlipsView() {
+    try {
+      await loadLookups();
+      if (!examsList.length) examsList = await api('/exams');
+      fillSelect($('rsExamSelect'), examsList, { labelFn: examLabel });
+      $('rsExamSelect').onchange = renderRollSlipRoster;
+      $('rsSelectAll').onchange = (e) => {
+        document.querySelectorAll('[data-rs-student]').forEach((c) => { c.checked = e.target.checked; });
+      };
+      $('rollSlipsPrintable').innerHTML = '';
+      await renderRollSlipRoster();
+    } catch (err) { handleAuthError(err); }
+  }
+
+  async function renderRollSlipRoster() {
+    const examId = $('rsExamSelect').value;
+    const tbody = $('rsRosterBody');
+    $('rollSlipsPrintable').innerHTML = '';
+    if (!examId) { tbody.innerHTML = '<tr><td colspan="6" class="empty-row">Select an exam</td></tr>'; return; }
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-row">Loading…</td></tr>';
+    rsRosterCache = await rosterForExam(examId);
+    if (!rsRosterCache.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No students in this class/section yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rsRosterCache.map((s) => `
+      <tr>
+        <td><input type="checkbox" data-rs-student="${s.id}" checked /></td>
+        <td>${s.roll_number || '—'}</td><td>${s.admission_no}</td><td>${s.full_name}</td>
+        <td>${s.class_name || ''}${s.section_name ? ' - ' + s.section_name : ''}</td>
+        <td>${s.guardian_name || '—'}</td>
+      </tr>
+    `).join('');
+    $('rsSelectAll').checked = true;
+  }
+
+  function dayName(dateStr) {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString('en-GB', { weekday: 'short' });
+  }
+
+  // DB time columns come back as "HH:MM:SS" — trim the seconds for display.
+  function fmtTime(t) {
+    return t ? String(t).slice(0, 5) : '';
+  }
+
+  async function renderRollSlips() {
+    const examId = $('rsExamSelect').value;
+    if (!examId) { showToast('Select an exam first', 'error'); return false; }
+    const selected = [...document.querySelectorAll('[data-rs-student]:checked')].map((c) => c.getAttribute('data-rs-student'));
+    if (!selected.length) { showToast('Select at least one student', 'error'); return false; }
+
+    const [exam, schedule, settings] = await Promise.all([
+      examsList.find((e) => e.id === examId) || api(`/exams/${examId}`),
+      api(`/exams/${examId}/schedule`),
+      api('/settings'),
+    ]);
+    const students = rsRosterCache.filter((s) => selected.includes(s.id));
+    const schoolName = settings.school_name || 'Moon Grammar School';
+    const examTitle = examLabel(exam);
+
+    const scheduleRows = schedule.map((sc) => {
+      const subj = subjects.find((x) => x.id === sc.subject_id);
+      return `<tr>
+        <td>${subj ? subj.name : ''}</td>
+        <td>${fmtDate(sc.exam_date)}</td>
+        <td>${dayName(sc.exam_date)}</td>
+        <td>${fmtTime(sc.start_time)} – ${fmtTime(sc.end_time)}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="4" class="empty-row">Date sheet not published yet</td></tr>';
+
+    $('rollSlipsPrintable').innerHTML = students.map((s) => `
+      <div class="rollslip-card">
+        <div class="rollslip-header">
+          <img src="/img/mgs-logo.png" alt="Moon Grammar School logo" class="brand-logo" style="width:44px" />
+          <div>
+            <h3>${schoolName}</h3>
+            <p class="school-contact">1037-E-1 Johar Town, Lahore &nbsp;·&nbsp; 0308-6010310</p>
+            <p class="rollslip-title">Roll Number Slip — ${examTitle}</p>
+          </div>
+        </div>
+        <div class="rollslip-body">
+          <table class="rollslip-meta">
+            <tbody>
+              <tr><th>Student Name</th><td>${s.full_name}</td></tr>
+              <tr><th>Guardian Name</th><td>${s.guardian_name || '—'}</td></tr>
+              <tr><th>Roll Number</th><td><strong>${s.roll_number || '—'}</strong></td></tr>
+              <tr><th>Admission No</th><td>${s.admission_no}</td></tr>
+              <tr><th>Class</th><td>${s.class_name || ''}${s.section_name ? ' - ' + s.section_name : ''}</td></tr>
+            </tbody>
+          </table>
+          <table class="data-table rollslip-datesheet">
+            <thead><tr><th>Subject</th><th>Date</th><th>Day</th><th>Time</th></tr></thead>
+            <tbody>${scheduleRows}</tbody>
+          </table>
+        </div>
+        <div class="rollslip-footer">
+          <span>Class Teacher's Signature</span>
+          <span>Controller of Examinations</span>
+        </div>
+      </div>
+    `).join('');
+    $('rollSlipsPrintable').scrollIntoView({ behavior: 'smooth' });
+    return true;
+  }
+
+  $('rsPrintBtn').addEventListener('click', async () => {
+    setBtnLoading($('rsPrintBtn'), true);
+    try {
+      const ok = await renderRollSlips();
+      if (ok) window.print();
+    } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading($('rsPrintBtn'), false); }
+  });
 
   // ===================================================================
   // CLASSES, SECTIONS & SUBJECTS (Phase 2)
