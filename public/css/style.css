@@ -221,6 +221,7 @@ select {
   .main { padding: 0; }
   .panel { box-shadow: none; }
   .rs-roster-panel { display: none !important; }
+  .no-print { display: none !important; }
 }
 
 /* ===== Roll Number Slips ===== */
