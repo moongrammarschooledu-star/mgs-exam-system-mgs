@@ -412,30 +412,114 @@
     } catch (err) { handleAuthError(err); }
   }
 
+  let dsScheduleCache = [];
+
   async function renderDateSheet() {
     const examId = $('dsExamSelect').value;
     const tbody = $('dateSheetBody');
-    if (!examId) { tbody.innerHTML = '<tr><td colspan="7" class="empty-row">Select an exam</td></tr>'; return; }
+    if (!examId) { tbody.innerHTML = '<tr><td colspan="8" class="empty-row">Select an exam</td></tr>'; return; }
     const exam = examsList.find((e) => e.id === examId);
     $('dsTitle').textContent = exam ? `Date Sheet — ${examLabel(exam)}` : 'Date Sheet';
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-row">Loading…</td></tr>';
-    const schedule = await api(`/exams/${examId}/schedule`);
-    if (!schedule.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty-row">No papers scheduled yet.</td></tr>';
-    } else {
-      tbody.innerHTML = schedule.map((s) => {
-        const subj = subjects.find((x) => x.id === s.subject_id);
-        return `<tr>
-          <td>${subj ? subj.name : ''}</td>
-          <td>${fmtDate(s.exam_date)}</td>
-          <td>${s.start_time} – ${s.end_time}</td>
-          <td>${s.duration_mins} mins</td>
-          <td>${s.total_marks}</td>
-          <td>${s.passing_marks}</td>
-          <td>${s.room || '—'}</td>
-        </tr>`;
-      }).join('');
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-row">Loading…</td></tr>';
+    dsScheduleCache = await api(`/exams/${examId}/schedule`);
+    if (!dsScheduleCache.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-row">No papers scheduled yet.</td></tr>';
+      return;
     }
+    tbody.innerHTML = dsScheduleCache.map((s) => {
+      const subj = subjects.find((x) => x.id === s.subject_id);
+      return `<tr>
+        <td>${subj ? subj.name : ''}</td>
+        <td>${fmtDate(s.exam_date)}</td>
+        <td>${s.start_time} – ${s.end_time}</td>
+        <td>${s.duration_mins} mins</td>
+        <td>${s.total_marks}</td>
+        <td>${s.passing_marks}</td>
+        <td>${s.room || '—'}</td>
+        <td class="table-actions no-print">
+          <button class="btn btn-ghost btn-sm" data-edit-sched="${s.id}">Edit</button>
+          <button class="btn btn-ghost btn-sm" data-del-sched="${s.id}">Delete</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    tbody.querySelectorAll('[data-edit-sched]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const entry = dsScheduleCache.find((s) => s.id === btn.getAttribute('data-edit-sched'));
+        if (entry) showEditScheduleModal(examId, entry);
+      });
+    });
+    tbody.querySelectorAll('[data-del-sched]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!(await showConfirm('Remove this paper from the date sheet?'))) return;
+        try {
+          await api(`/exams/${examId}/schedule/${btn.getAttribute('data-del-sched')}`, { method: 'DELETE' });
+          showToast('Removed from date sheet.');
+          renderDateSheet();
+        } catch (err) { showToast(err.message, 'error'); }
+      });
+    });
+  }
+
+  // ----- Edit Date Sheet entry modal (change date/time/duration/marks/room —
+  // e.g. correcting a subject's total marks — without deleting and re-adding) -----
+  function showEditScheduleModal(examId, entry) {
+    const subj = subjects.find((x) => x.id === entry.subject_id);
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-box modal-form">
+        <h3 style="margin:0 0 16px">Edit Date Sheet Entry — ${subj ? subj.name : ''}</h3>
+        <form id="editScheduleForm" class="form-grid">
+          <div><label>Date</label><input type="date" id="editSchedDate" required /></div>
+          <div><label>Start Time</label><input type="time" id="editSchedStart" required /></div>
+          <div><label>End Time</label><input type="time" id="editSchedEnd" required /></div>
+          <div><label>Duration (mins)</label><input type="number" id="editSchedDuration" required /></div>
+          <div><label>Total Marks</label><input type="number" id="editSchedTotal" required /></div>
+          <div><label>Passing Marks</label><input type="number" id="editSchedPassing" required /></div>
+          <div><label>Room</label><input type="text" id="editSchedRoom" placeholder="Optional" /></div>
+          <div class="modal-actions" style="grid-column:1/-1">
+            <button type="button" class="btn btn-ghost" data-modal="cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('[data-modal="cancel"]').addEventListener('click', close);
+
+    overlay.querySelector('#editSchedDate').value = entry.exam_date ? String(entry.exam_date).slice(0, 10) : '';
+    overlay.querySelector('#editSchedStart').value = entry.start_time ? String(entry.start_time).slice(0, 5) : '';
+    overlay.querySelector('#editSchedEnd').value = entry.end_time ? String(entry.end_time).slice(0, 5) : '';
+    overlay.querySelector('#editSchedDuration').value = entry.duration_mins;
+    overlay.querySelector('#editSchedTotal').value = entry.total_marks;
+    overlay.querySelector('#editSchedPassing').value = entry.passing_marks;
+    overlay.querySelector('#editSchedRoom').value = entry.room || '';
+
+    overlay.querySelector('#editScheduleForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = submitBtnOf(e);
+      setBtnLoading(btn, true);
+      try {
+        await api(`/exams/${examId}/schedule/${entry.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            examDate: overlay.querySelector('#editSchedDate').value,
+            startTime: overlay.querySelector('#editSchedStart').value,
+            endTime: overlay.querySelector('#editSchedEnd').value,
+            durationMins: Number(overlay.querySelector('#editSchedDuration').value),
+            totalMarks: Number(overlay.querySelector('#editSchedTotal').value),
+            passingMarks: Number(overlay.querySelector('#editSchedPassing').value),
+            room: overlay.querySelector('#editSchedRoom').value.trim() || null,
+          }),
+        });
+        showToast('Date sheet entry updated.');
+        close();
+        renderDateSheet();
+      } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading(btn, false); }
+    });
   }
 
   $('scheduleForm').addEventListener('submit', async (e) => {
