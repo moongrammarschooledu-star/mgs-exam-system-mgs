@@ -1170,6 +1170,8 @@
       fillSelect($('resultsExamSelect'), examsList, { labelFn: examLabel });
       $('resultsExamSelect').onchange = renderResultsTable;
       $('resultCardPanel').style.display = 'none';
+      $('bulkResultCards').style.display = 'none';
+      $('bulkResultCards').innerHTML = '';
       renderResultsTable();
     } catch (err) { handleAuthError(err); }
   }
@@ -1186,28 +1188,39 @@
         <td>${r.obtainedTotal} / ${r.maxTotal}</td><td>${r.percentage}%</td><td>${r.grade}</td>
         <td>${r.passFail === 'pass' ? '<span class="badge-pass">PASS</span>' : '<span class="badge-fail">FAIL</span>'}</td>
         <td>${r.position || '—'}</td>
-        <td><button class="btn btn-ghost btn-sm" data-view-card="${r.studentId}">View Card</button></td>
+        <td class="table-actions">
+          <button class="btn btn-ghost btn-sm" data-view-card="${r.studentId}">View Card</button>
+          <button class="btn btn-ghost btn-sm" data-print-card="${r.studentId}">Print</button>
+        </td>
       </tr>
     `).join('') || '<tr><td colspan="8" class="empty-row">No students found for this exam.</td></tr>';
 
     tbody.querySelectorAll('[data-view-card]').forEach((btn) => {
       btn.addEventListener('click', () => renderResultCard(examId, btn.getAttribute('data-view-card')));
     });
+    // One-click print: render the card for just this student, then open the
+    // print dialog straight away, without making staff click "View Card"
+    // first and hunt for the separate print button.
+    tbody.querySelectorAll('[data-print-card]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        setBtnLoading(btn, true);
+        try {
+          await renderResultCard(examId, btn.getAttribute('data-print-card'));
+          window.print();
+        } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading(btn, false); }
+      });
+    });
   }
 
-  async function renderResultCard(examId, studentId) {
-    const [result, student, exam, settings] = await Promise.all([
-      api(`/exams/${examId}/results/${studentId}`),
-      api(`/students/${studentId}`),
-      api(`/exams/${examId}`),
-      api('/settings'),
-    ]);
-    $('resultCardPanel').style.display = 'block';
-    $('resultCard').innerHTML = `
+  // Builds the inner markup of one result card (header/meta/marks table/
+  // summary/remarks) — shared by the single-student view and the
+  // whole-class bulk print so the two never drift apart.
+  function buildResultCardHtml({ result, student, exam, settings }) {
+    return `
       <div class="result-card-header">
         <img src="/img/mgs-logo.png" alt="Moon Grammar School logo" class="brand-logo" style="width:64px" />
         <h2>${settings.school_name || 'Moon Grammar School'}</h2>
-        <p>Result Card — ${exam.name}</p>
+        <p>Result Card — ${examLabel(exam)}</p>
         <p class="school-contact">1037-E-1 Johar Town, Lahore &nbsp;·&nbsp; 0308-6010310</p>
       </div>
       <div class="result-card-meta">
@@ -1238,10 +1251,55 @@
         <p><strong>Principal's Remarks:</strong> ${result.remarks.principal_remark || '—'}</p>
       </div>
     `;
+  }
+
+  async function renderResultCard(examId, studentId) {
+    const [result, student, exam, settings] = await Promise.all([
+      api(`/exams/${examId}/results/${studentId}`),
+      api(`/students/${studentId}`),
+      examsList.find((e) => e.id === examId) || api(`/exams/${examId}`),
+      api('/settings'),
+    ]);
+    $('bulkResultCards').style.display = 'none';
+    $('bulkResultCards').innerHTML = '';
+    $('resultCardPanel').style.display = 'block';
+    $('resultCard').innerHTML = buildResultCardHtml({ result, student, exam, settings });
     $('resultCardPanel').scrollIntoView({ behavior: 'smooth' });
   }
 
   $('cardPrintBtn').addEventListener('click', () => window.print());
+
+  // Whole-class bulk print: one result card per student in the currently
+  // selected exam, each starting on its own printed page.
+  $('printAllCardsBtn').addEventListener('click', async () => {
+    const examId = $('resultsExamSelect').value;
+    if (!examId) return showToast('Select an exam first', 'error');
+    const btn = $('printAllCardsBtn');
+    setBtnLoading(btn, true);
+    try {
+      const [{ results }, exam, settings] = await Promise.all([
+        api(`/exams/${examId}/results`),
+        examsList.find((e) => e.id === examId) || api(`/exams/${examId}`),
+        api('/settings'),
+      ]);
+      if (!results.length) { showToast('No students found for this exam.', 'error'); return; }
+
+      const cards = await Promise.all(results.map(async (r) => {
+        const [result, student] = await Promise.all([
+          api(`/exams/${examId}/results/${r.studentId}`),
+          api(`/students/${r.studentId}`),
+        ]);
+        return `<div class="result-card">${buildResultCardHtml({ result, student, exam, settings })}</div>`;
+      }));
+
+      $('resultCardPanel').style.display = 'none';
+      const container = $('bulkResultCards');
+      container.innerHTML = cards.join('');
+      container.style.display = 'block';
+      container.scrollIntoView({ behavior: 'smooth' });
+      window.print();
+    } catch (err) { showToast(err.message, 'error'); } finally { setBtnLoading(btn, false); }
+  });
 
   // ===================================================================
   // GAZETTE (Phase 10)
