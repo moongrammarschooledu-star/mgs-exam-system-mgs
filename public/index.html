@@ -378,9 +378,10 @@
 
     <!-- ===== Results & Report Cards ===== -->
     <section id="view-results" class="view" style="display:none">
-      <div class="panel">
+      <div class="panel no-print">
         <div class="toolbar">
           <div><label>Exam</label><select id="resultsExamSelect"></select></div>
+          <button id="printAllCardsBtn" class="btn btn-ghost">🖨️ Print Whole Class</button>
         </div>
         <table class="data-table">
           <thead><tr><th>Roll</th><th>Name</th><th>Total</th><th>%</th><th>Grade</th><th>Result</th><th>Position</th><th></th></tr></thead>
@@ -391,6 +392,7 @@
         <div class="toolbar"><button id="cardPrintBtn" class="btn btn-ghost">🖨️ Print Result Card</button></div>
         <div id="resultCard" class="result-card"></div>
       </div>
+      <div id="bulkResultCards" class="bulk-cards" style="display:none"></div>
     </section>
 
     <!-- ===== Gazette ===== -->
