@@ -216,12 +216,30 @@ select {
 .gazette-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 20px; }
 .gazette-stats .stat-card { text-align: center; }
 
+@page { size: A4; margin: 14mm; }
+
 @media print {
   .sidebar, .topbar, .toolbar, form, .quick-actions, .sidebar-overlay, .toast-container { display: none !important; }
   .main { padding: 0; }
   .panel { box-shadow: none; }
   .rs-roster-panel { display: none !important; }
   .no-print { display: none !important; }
+  .result-card { border-width: 1px; }
+}
+
+/* ===== Bulk (whole-class) result card printing ===== */
+.bulk-cards .result-card {
+  margin: 0 auto 24px;
+  page-break-after: always;
+  break-after: page;
+}
+.bulk-cards .result-card:last-child {
+  margin-bottom: 0;
+  page-break-after: auto;
+  break-after: auto;
+}
+@media screen {
+  .bulk-cards .result-card { margin-bottom: 28px; }
 }
 
 /* ===== Roll Number Slips ===== */
